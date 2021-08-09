@@ -77,31 +77,29 @@ class Shop implements ShopCommand
     public function setToPlan(ShopId $shopId, PlanIdValue $planId): bool
     {
         $plan = Plan::find( $planId->toNative() );
-        $shop = $this->getShop($shopId);
+        $shop = $this->getShop( $shopId );
         $shop->plan_id = $planId->toNative();
         $shop->shopify_freemium = false;
         $shop->plan_type = $plan->name;
         $shop->current_billing_period_end = now()->addDays(30);
         $shop->decreasable_pushes = $plan->push_notification_maximum_number_of_contact;
-        if ( $plan->name == "pro" )
+        
+        if ( $shop->plan_type == "pro" )
         {
-            if ( $shop->plan_type == "pro" )
+            $sms_credit = $shop->smsCredit ? $shop->smsCredit : new SmsCredit();
+            $half_of_price = $plan->price/2;
+            $sms_credit->promo_decreasable_amount = $half_of_price;
+            $sms_credit->promo_static_amount = $half_of_price;
+            $sms_credit->user_id = $shop->id;
+            $sms_credit->save();
+        }
+        else
+        {
+            if ( $sms_credit = $shop->smsCredit )
             {
-                $sms_credit = $shop->smsCredit ? $shop->smsCredit : new SmsCredit();
-                $half_of_price = $plan->price/2;
-                $sms_credit->promo_decreasable_amount = $half_of_price;
-                $sms_credit->promo_static_amount = $half_of_price;
-                $sms_credit->shop_id = $shop->id;
+                $sms_credit->promo_decreasable_amount = "0.00";
+                $sms_credit->promo_static_amount = "0.00";
                 $sms_credit->save();
-            }
-            else
-            {
-                if ( $sms_credit = $shop->smsCredit )
-                {
-                    $sms_credit->promo_decreasable_amount = "0.00";
-                    $sms_credit->promo_static_amount = "0.00";
-                    $sms_credit->save();
-                }
             }
         }
         
