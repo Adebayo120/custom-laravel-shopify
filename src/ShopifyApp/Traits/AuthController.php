@@ -5,6 +5,7 @@ namespace Osiset\ShopifyApp\Traits;
 use App\User;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use App\Classes\Queue\QueueClass;
 use Illuminate\Support\Facades\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Session;
@@ -15,6 +16,9 @@ use App\Constants\Models\User\OnboardingTask;
 use Illuminate\Contracts\View\View as ViewView;
 use Osiset\ShopifyApp\Actions\AuthenticateShop;
 use Osiset\ShopifyApp\Objects\Values\ShopDomain;
+use App\Jobs\Engage\AddUserActionToEngageJob;
+use App\Constants\Engage\EngageUserTrackedEvent;
+
 
 /**
  * Responsible for authenticating the shop.
@@ -105,6 +109,13 @@ trait AuthController
             {
                 $user = User::where( 'shop_name', $request->get('shop') )->first();
                 $user->complete_onboarding_task( OnboardingTask::CONNECT_STORE );
+                $integrated_shop_engage_track_event_properties = [
+                    "shop_name"             => $user->shop_name,
+                    "shop_email"            => $user->shop_email,
+                ];
+        
+                AddUserActionToEngageJob::dispatch( $user->id, EngageUserTrackedEvent::INTEGRATED_SHOPIFY, $integrated_shop_engage_track_event_properties, now() )->onQueue( QueueClass::ENGAGE );
+
                 session()->flash( 'status', $request->get('shop').' was Successfully Integrated Into Your Account' );
                 session( [ 'return_to' => url('integration') ] );
                 session()->forget('shop');
