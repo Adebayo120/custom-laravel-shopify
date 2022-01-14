@@ -77,8 +77,6 @@ class AppUninstalledJob implements ShouldQueue
         
         // Purge shop of token, plan, etc.
         $shopCommand->clean( $shopId );
-
-
         
         $shop->is_stripe_user = 1;
         $shop->shop_name = null;
@@ -93,9 +91,11 @@ class AppUninstalledJob implements ShouldQueue
 
         $shop->save();
 
-
         // Soft delete the shop.
-        ShopifyShop::where('user_id', $shop->id)->delete();
+        $shopify_shop = ShopifyShop::where('user_id', $shop->id)->first();
+        $shopify_shop->deleted_at = now();
+        $shopify_shop->password = '';
+        $shopify_shop->save();
 
         return true;
     }
