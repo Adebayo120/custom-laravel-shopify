@@ -5,7 +5,6 @@ namespace Osiset\ShopifyApp\Storage\Commands;
 use App\User;
 use App\SmsCredit;
 use App\ShopifyShop;
-use Illuminate\Support\Facades\DB;
 use Osiset\ShopifyApp\Contracts\ShopModel;
 use Osiset\ShopifyApp\Objects\Values\ShopId;
 use Osiset\ShopifyApp\Traits\ConfigAccessible;
@@ -131,11 +130,18 @@ class Shop implements ShopCommand
     public function setAccessToken(ShopId $shopId, AccessTokenValue $token): bool
     {
         $shop = $this->getShop( $shopId );
+
         $shop->shop_password = $token->toNative();
+
+        $user_owned_shopify_shops = ShopifyShop::withTrashed()->where( "user_id", $shop->id )->get();
+
+        delete_shops_and_relations( $user_owned_shopify_shops );
+
         $persisted_shop_seperate_table =  ShopifyShop::withTrashed()->where( 'email', $shop->shop_email )->first();
+
         if( $persisted_shop_seperate_table )
         {
-            $this->delete_shop_relations ( $persisted_shop_seperate_table );
+            delete_shop_relations ( $persisted_shop_seperate_table );
 
             $persisted_shop_seperate_table->user_id = $shop->id;
             $persisted_shop_seperate_table->deleted_at = null;
@@ -145,15 +151,6 @@ class Shop implements ShopCommand
         }
         else
         {
-            $user_owned_shopify_shop = ShopifyShop::withTrashed()->where( "user_id", $shop->id );
-
-            if (  $user_owned_shopify_shop_first = $user_owned_shopify_shop->first() )
-            {
-                $this->delete_shop_relations ( $user_owned_shopify_shop_first );
-
-                $user_owned_shopify_shop->forceDelete();
-            }
-
             $shop_seperate_table= new ShopifyShop();
             $shop_seperate_table->name = $shop->shop_name;
             $shop_seperate_table->password = $token->toNative();
@@ -161,86 +158,11 @@ class Shop implements ShopCommand
             $shop_seperate_table->user_id = $shop->id;
             $shop_seperate_table->persisted = 0;
             $shop_seperate_table->save();
-
         }
+
+        $shop->shopify_revenue_value = "0.00";
 
         return $shop->save(); 
-    }
-
-    /**
-     * delete_shop_relations
-     *
-     * @param [type] $shopify_shop_first
-     * @return void
-     */
-    public function delete_shop_relations ( $shopify_shop_first )
-    {
-        $subaccount = $shopify_shop_first->subaccount;
-        if ( !$subaccount )
-        {
-            return;
-        }
-
-        $user = $subaccount->user;
-
-        $subaccounts_ids = $user->subAccounts->pluck("id")->toArray();
-        
-        $subaccount->orders_count = 0;
-
-        $subaccount->relations_revenue_array = $this->default_relations_revenue_array();
-
-        $subaccount->save();
-
-        // DELETE RELATED TABLES
-        DB::table("customers")->where( "customerable_id", $shopify_shop_first->id )->where( "customerable_type", "App\ShopifyShop" )->delete();
-        DB::table("images")->where( "imageable_id", $shopify_shop_first->id )->where( "imageable_type", "App\ShopifyShop" )->delete();
-        DB::table("products")->where( "productable_id", $shopify_shop_first->id )->where( "productable_type", "App\ShopifyShop" )->delete();
-        DB::table( "orders" )->where( "orderable_id", $shopify_shop_first->id )->where( "orderable_type", "App\ShopifyShop" )->delete();
-
-        DB::table("contacts")->whereIn("sub_account_id", $subaccounts_ids )
-                            ->update( [ 
-                                "shopify_revenue_value" => "0.00", 
-                                "relations_revenue_array" => $this->default_relations_revenue_array() 
-                            ] );
-
-        DB::table( "automations" )->whereIn("sub_account_id", $subaccounts_ids )->update( [ "shopify_revenue_value" => "0.00" ] );
-        DB::table("bots")->whereIn("sub_account_id", $subaccounts_ids )->update( [ "shopify_revenue_value" => "0.00" ] );
-        DB::table("campaigns")->whereIn("sub_account_id", $subaccounts_ids )->update( [ "shopify_revenue_value" => "0.00" ] );
-        DB::table( "sms_campaigns" )->whereIn( "sub_account_id", $subaccounts_ids )->update( [ "shopify_revenue_value" => "0.00" ] );
-        DB::table( "push_messages" )->where( "user_id", $user->id )->update( [ "shopify_revenue_value" => "0.00" ] );
-    }
-
-    /**
-     * default_relations_revenue_array
-     *
-     * @return void
-     */
-    public function default_relations_revenue_array ()
-    {
-        return [
-            "automation" => [
-                "shopify_revenue_value" => [ "total" => "0.00" ],
-                "bc_revenue_value" => [ "total" => "0.00" ]
-            ],
-            "bot" => [
-                "shopify_revenue_value" => [ "total" => "0.00" ],
-                "bc_revenue_value" => [ "total" => "0.00" ]
-            ],
-            "campaign" => [
-                "shopify_revenue_value" => [ "total" => "0.00" ],
-                "bc_revenue_value" => [ "total" => "0.00" ]
-            ],
-            "smscampaign" => [
-                "shopify_revenue_value" => [ "total" => "0.00" ],
-                "bc_revenue_value" => [ "total" => "0.00" ]
-            ],
-            "push_message" => [
-                "shopify_revenue_value" => [ "total" => "0.00" ],
-                "bc_revenue_value" => [ "total" => "0.00" ]
-            ],
-            "shopify_revenue_value" => [ "total" => "0.00" ],
-            "bc_revenue_value" => [ "total" => "0.00" ]
-        ];
     }
 
     /**
