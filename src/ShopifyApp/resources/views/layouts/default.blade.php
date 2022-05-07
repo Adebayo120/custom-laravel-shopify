@@ -32,7 +32,7 @@
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
         <link rel="stylesheet" type="text/css" href='{{ asset("css/custom/smunk-app/smunk-app.min.css") }}' />
-        <link rel="stylesheet" type="text/css" href='{{ asset("css/custom/smunk-app/auth/smunk-auth.css") }}' />
+        <link rel="stylesheet" type="text/css" href='{{ asset("css/custom/smunk-app/auth/smunk-auth.css").smunkHelper::version_control() }}' />
         <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css"/>
         <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.css"/>
         @include('includes.partials.tracking')
