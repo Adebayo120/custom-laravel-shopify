@@ -4,7 +4,9 @@ namespace Osiset\ShopifyApp\Messaging\Jobs;
 
 use App\ShopifyShop;
 use stdClass;
+use App\Jobs\SendMailJob;
 use Illuminate\Bus\Queueable;
+use App\Classes\Queue\QueueClass;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -77,6 +79,9 @@ class AppUninstalledJob implements ShouldQueue
         
         // Purge shop of token, plan, etc.
         $shopCommand->clean( $shopId );
+
+        $emailData = [];
+        $emailData['store_name'] = $shop->shop_name;
         
         $shop->is_stripe_user = 1;
         $shop->shop_name = null;
@@ -96,6 +101,10 @@ class AppUninstalledJob implements ShouldQueue
         $shopify_shop->deleted_at = now();
         $shopify_shop->password = '';
         $shopify_shop->save();
+        
+        $emailData['name'] = $shop->name;
+        $emailData['email'] = $shop->email;
+        SendMailJob::dispatch($emailData, 'App Uninstallation Successful', 'emails.shopify.app_unistallation_success')->onQueue( QueueClass::MAILS );
 
         return true;
     }
