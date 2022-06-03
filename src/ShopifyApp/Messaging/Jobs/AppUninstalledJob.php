@@ -11,6 +11,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use App\Constants\Mixpanel\MixpanelTrackedEvent;
 use Osiset\ShopifyApp\Actions\CancelCurrentPlan;
 use Osiset\ShopifyApp\Contracts\Objects\Values\ShopDomain;
 use Osiset\ShopifyApp\Contracts\Queries\Shop as IShopQuery;
@@ -105,6 +106,12 @@ class AppUninstalledJob implements ShouldQueue
         $emailData['name'] = $shop->name;
         $emailData['email'] = $shop->email;
         SendMailJob::dispatch($emailData, 'App Uninstallation Successful', 'emails.shopify.app_unistallation_success')->onQueue( QueueClass::MAILS );
+
+        sendMixpanelEvent( MixpanelTrackedEvent::UNISTALLED_SHOPIFY, [
+            "user_id"           => $shop->id,
+            "user_email"        => $shop->email,
+            "store_name"        => $shopify_shop->name,
+        ], $shop);
 
         return true;
     }
